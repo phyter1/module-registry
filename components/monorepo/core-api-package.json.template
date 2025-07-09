@@ -1,0 +1,27 @@
+{
+	"name": "@app/api",
+	"module": "src/index.ts",
+	"type": "module",
+	"private": true,
+	"scripts": {
+		"build": "bun build index.ts --outdir=dist",
+		"lint": "biome check",
+		"format": "biome format --fix",
+		"test": "bun test",
+		"typecheck": "tsc --noEmit --skipLibCheck --strict --module esnext --target esnext index.ts"
+	},
+	"devDependencies": {
+		"@types/bun": "latest",
+		"@app/typescript-config": "workspace:*"
+	},
+	"peerDependencies": {
+		"typescript": "^5"
+	},
+	"dependencies": {
+		"@hono/zod-openapi": "^0.19.9",
+		"@app/environment": "workspace:*"
+	},
+	"exports": {
+		"./routes/*": "./src/routes/*.ts"
+	}
+}

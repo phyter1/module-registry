@@ -1,0 +1,30 @@
+{
+	"name": "@app/server",
+	"module": "src/index.ts",
+	"type": "module",
+	"scripts": {
+		"dev": "bun run --watch src/index.ts",
+		"build": "bun build src/index.ts --outdir=dist",
+		"start": "bun run src/index.ts",
+		"lint": "biome check",
+		"format": "biome format --fix",
+		"test": "bun test",
+		"typecheck": "tsc --noEmit --skipLibCheck --strict --module esnext --target esnext src/index.ts"
+	},
+	"devDependencies": {
+		"@types/bun": "latest"
+	},
+	"peerDependencies": {
+		"typescript": "^5"
+	},
+	"dependencies": {
+		"@hono/zod-openapi": "^0.19.9",
+		"@scalar/hono-api-reference": "^0.9.7",
+		"@scalar/openapi-to-markdown": "^0.2.17",
+		"hono": "^4.8.3",
+		"zod": "^3.25.71"
+	},
+	"exports": {
+		"./client": "./src/client.ts"
+	}
+}

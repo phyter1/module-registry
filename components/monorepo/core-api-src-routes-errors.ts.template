@@ -1,0 +1,112 @@
+import { z } from "@hono/zod-openapi";
+
+export const ErrorSchema = z.object({
+	code: z.number().openapi({
+		example: 500,
+		description: "HTTP status code",
+	}),
+	message: z.string().openapi({
+		example: "Internal Server Error",
+		description: "Error message",
+	}),
+});
+
+export type BaseErrors = {
+	400: {
+		description: string;
+		content: {
+			"application/json": {
+				schema: typeof ErrorSchema;
+			};
+		};
+	};
+	404: {
+		description: string;
+		content: {
+			"application/json": {
+				schema: typeof ErrorSchema;
+			};
+		};
+	};
+	500: {
+		description: string;
+		content: {
+			"application/json": {
+				schema: typeof ErrorSchema;
+			};
+		};
+	};
+};
+
+export type AuthErrors = {
+	401: {
+		description: string;
+		content: {
+			"application/json": {
+				schema: typeof ErrorSchema;
+			};
+		};
+	};
+	403: {
+		description: string;
+		content: {
+			"application/json": {
+				schema: typeof ErrorSchema;
+			};
+		};
+	};
+} & BaseErrors;
+
+export const standardErrorResponses = <HA extends boolean>({
+	hasAuth,
+}: {
+	hasAuth?: HA;
+}): HA extends true ? AuthErrors : BaseErrors =>
+	Object.assign(
+		{
+			400: {
+				description: "Bad Request",
+				content: {
+					"application/json": {
+						schema: ErrorSchema,
+					},
+				},
+			},
+			404: {
+				description: "Not Found",
+				content: {
+					"application/json": {
+						schema: ErrorSchema,
+					},
+				},
+			},
+			500: {
+				description: "Internal Server Error",
+				content: {
+					"application/json": {
+						schema: ErrorSchema,
+					},
+				},
+			},
+		},
+		hasAuth
+			? {
+					401: {
+						description: "Unauthorized",
+						content: {
+							"application/json": {
+								schema: ErrorSchema,
+							},
+						},
+					},
+					403: {
+						description: "Forbidden",
+						content: {
+							"application/json": {
+								schema: ErrorSchema,
+							},
+						},
+					},
+				}
+			: {},
+	) as HA extends true ? AuthErrors : BaseErrors;

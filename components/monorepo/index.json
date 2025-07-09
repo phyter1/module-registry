@@ -4,8 +4,114 @@
   "version": "1.0.0",
   "type": "project",
   "internalDependencies": [],
-  "externalDependencies": [],
   "internalDevDependencies": [],
-  "externalDevDependencies": [],
-  "files": []
+  "externalDependencies": [],
+  "externalPeerDependencies": { "typescript": "^5" },
+  "externalDevDependencies": {
+    "@biomejs/biome": "2.0.6",
+    "@types/bun": "latest"
+  },
+
+  "files": [
+    {
+      "path": "package.json",
+      "target": "project",
+      "content": "package.json.template"
+    },
+    {
+      "path": "biome.json",
+      "target": "project",
+      "content": "biome.json.template"
+    },
+    {
+      "path": ".env",
+      "target": "project",
+      "content": ".env.template"
+    },
+    {
+      "path": "typescript-config/package.json",
+      "target": "core",
+      "content": "core-typescript-config-package.json.template"
+    },
+    {
+      "path": "typescript-config/bun-base.json",
+      "target": "core",
+      "content": "core-environment-tsconfig.json.template"
+    },
+    {
+      "path": "typescript-config/base.json",
+      "target": "core",
+      "content": "core-environment-base.json.template"
+    },
+    {
+      "path": "typescript-config/react-library.json",
+      "target": "core",
+      "content": "core-environment-react-library.json.template"
+    },
+    {
+      "path": "api/package.json",
+      "target": "core",
+      "content": "core-typescript-config-package.json.template"
+    },
+    {
+      "path": "api/tsconfig.json",
+      "target": "core",
+      "content": "core-environment-tsconfig.json.template"
+    },
+    {
+      "path": "api/src/rate-limiter.ts",
+      "target": "core",
+      "content": "core-environment-src-rate-limiter.ts.template"
+    },
+    {
+      "path": "api/src/middleware/rate-limiting.ts",
+      "target": "core",
+      "content": "core-environment-src-middleware-rate-limiting.ts.template"
+    },
+    {
+      "path": "spi/src/routes/errors.ts",
+      "target": "core",
+      "content": "core-environment-src-routes-errors.ts.template"
+    },
+    {
+      "path": "environment/package.json",
+      "target": "core",
+      "content": "core-environment-package.json.template"
+    },
+    {
+      "path": "environment/tsconfig.json",
+      "target": "core",
+      "content": "core-environment-tsconfig.json.template"
+    },
+    {
+      "path": "environment/src/index.ts",
+      "target": "core",
+      "content": "core-environment-src-index.ts.template"
+    },
+    {
+      "path": "backend/server/package.json",
+      "target": "project",
+      "content": "backend-server-package.json.template"
+    },
+    {
+      "path": "backend/server/tsconfig.json",
+      "target": "project",
+      "content": "core-environment-tsconfig.json.template"
+    },
+    {
+      "path": "backend/server/src/index.ts",
+      "target": "project",
+      "content": "core-environment-src-index.ts.template"
+    },
+    {
+      "path": "backend/server/src/routes/hello-world.ts",
+      "target": "project",
+      "content": "backend-server-src-routes-hello-world.ts.template"
+    },
+    {
+      "path": "backend/server/src/client.ts",
+      "target": "project",
+      "content": "backend-server-src-client.ts.template"
+    }
+  ]
 }

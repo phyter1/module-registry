@@ -1,0 +1,262 @@
+import type { Redis } from "ioredis"; // or your Redis client of choice
+
+// Rate limiter configuration interface
+export interface RateLimiterConfig {
+	max: number; // Maximum tokens in bucket
+	refillIntervalSeconds: number; // Seconds per token refill
+	namespace?: string; // Optional namespace for keys
+}
+
+// Result of rate limit check
+export interface RateLimitResult {
+	allowed: boolean;
+	remaining: number;
+	resetsAt: Date;
+}
+
+// Generic token bucket rate limiter for Redis
+export class RedisTokenBucketRateLimit {
+	private redis: Redis;
+	private config: RateLimiterConfig;
+	private keyPrefix: string;
+
+	constructor(redis: Redis, config: RateLimiterConfig) {
+		this.redis = redis;
+		this.config = config;
+		this.keyPrefix = `rate_limit:${config.namespace || "default"}`;
+	}
+
+	/**
+	 * Consume tokens from the bucket
+	 * @param key - Unique identifier (e.g., user ID, IP address)
+	 * @param cost - Number of tokens to consume (default: 1)
+	 * @returns Promise with rate limit result
+	 */
+	async consume(key: string, cost = 1): Promise<RateLimitResult> {
+		const bucketKey = this.getBucketKey(key);
+		const now = Date.now();
+
+		// Use Redis pipeline for atomic-like operations
+		const pipeline = this.redis.pipeline();
+
+		// Get current bucket state
+		pipeline.hgetall(bucketKey);
+
+		const [[err, bucketData]] = (await pipeline.exec()) as [
+			[Error | null, Record<string, string> | null],
+		];
+
+		if (err) throw err;
+
+		let count: number;
+		let refilledAtMs: number;
+
+		if (!bucketData || Object.keys(bucketData).length === 0) {
+			// Initialize new bucket
+			count = this.config.max;
+			refilledAtMs = now;
+		} else {
+			// Parse existing bucket data
+			count = Number.parseFloat(bucketData.count || "0");
+			refilledAtMs = Number.parseFloat(
+				bucketData.refilled_at_ms || now.toString(),
+			);
+		}
+
+		// Calculate refill
+		const timeSinceRefill = now - refilledAtMs;
+		const refillCount = Math.floor(
+			timeSinceRefill / (this.config.refillIntervalSeconds * 1000),
+		);
+
+		if (refillCount > 0) {
+			count = Math.min(count + refillCount, this.config.max);
+			refilledAtMs += refillCount * this.config.refillIntervalSeconds * 1000;
+		}
+
+		// Check if request can be allowed
+		const allowed = count >= cost;
+
+		if (allowed) {
+			count -= cost;
+		}
+
+		// Calculate TTL (time until bucket is full again)
+		const tokensToRefill = this.config.max - count;
+		const ttlSeconds = Math.ceil(
+			tokensToRefill * this.config.refillIntervalSeconds,
+		);
+
+		// Update bucket state atomically using WATCH
+		const updateSuccess = await this.updateBucket(
+			bucketKey,
+			count,
+			refilledAtMs,
+			ttlSeconds,
+			bucketData?.version ? bucketData.version : "0",
+		);
+
+		if (!updateSuccess) {
+			// Retry if concurrent modification detected
+			return this.consume(key, cost);
+		}
+
+		// Calculate when the bucket will be full again
+		const resetsAt = new Date(
+			refilledAtMs + tokensToRefill * this.config.refillIntervalSeconds * 1000,
+		);
+
+		return {
+			allowed,
+			remaining: Math.floor(count),
+			resetsAt,
+		};
+	}
+
+	/**
+	 * Update bucket state with optimistic locking
+	 */
+	private async updateBucket(
+		key: string,
+		count: number,
+		refilledAtMs: number,
+		ttlSeconds: number,
+		expectedVersion: string,
+	): Promise<boolean> {
+		const newVersion = Date.now().toString();
+
+		// Watch the key for changes
+		await this.redis.watch(key);
+
+		// Check if version matches (detect concurrent modifications)
+		const currentVersion = await this.redis.hget(key, "version");
+
+		if (currentVersion !== expectedVersion && currentVersion !== null) {
+			// Version mismatch, abort transaction
+			await this.redis.unwatch();
+			return false;
+		}
+
+		// Execute transaction
+		const pipeline = this.redis.multi();
+
+		pipeline.hset(key, {
+			count: count.toString(),
+			refilled_at_ms: refilledAtMs.toString(),
+			version: newVersion,
+		});
+
+		pipeline.expire(key, ttlSeconds);
+
+		const result = await pipeline.exec();
+
+		// Check if transaction succeeded
+		return result !== null;
+	}
+
+	/**
+	 * Check rate limit without consuming tokens
+	 */
+	async check(key: string, cost = 1): Promise<RateLimitResult> {
+		const bucketKey = this.getBucketKey(key);
+		const bucketData = await this.redis.hgetall(bucketKey);
+		const now = Date.now();
+
+		let count: number;
+		let refilledAtMs: number;
+
+		if (!bucketData || Object.keys(bucketData).length === 0) {
+			count = this.config.max;
+			refilledAtMs = now;
+		} else {
+			count = Number.parseFloat(bucketData.count || "0");
+			refilledAtMs = Number.parseFloat(
+				bucketData.refilled_at_ms || now.toString(),
+			);
+		}
+
+		// Calculate refill
+		const timeSinceRefill = now - refilledAtMs;
+		const refillCount = Math.floor(
+			timeSinceRefill / (this.config.refillIntervalSeconds * 1000),
+		);
+
+		if (refillCount > 0) {
+			count = Math.min(count + refillCount, this.config.max);
+			refilledAtMs += refillCount * this.config.refillIntervalSeconds * 1000;
+		}
+
+		const allowed = count >= cost;
+		const tokensToRefill = this.config.max - count;
+		const resetsAt = new Date(
+			refilledAtMs + tokensToRefill * this.config.refillIntervalSeconds * 1000,
+		);
+
+		return {
+			allowed,
+			remaining: Math.floor(count),
+			resetsAt,
+		};
+	}
+
+	/**
+	 * Reset rate limit for a specific key
+	 */
+	async reset(key: string): Promise<void> {
+		const bucketKey = this.getBucketKey(key);
+		await this.redis.del(bucketKey);
+	}
+
+	/**
+	 * Get bucket key with prefix
+	 */
+	private getBucketKey(key: string): string {
+		return `${this.keyPrefix}:${key}`;
+	}
+}
+
+// Factory function for creating rate limiters with different configurations
+export class RateLimiterFactory {
+	private redis: Redis;
+
+	constructor(redis: Redis) {
+		this.redis = redis;
+	}
+
+	/**
+	 * Create a rate limiter for API routes
+	 */
+	createForApiRoute(
+		routeName: string,
+		maxRequests: number,
+		windowSeconds: number,
+	): RedisTokenBucketRateLimit {
+		return new RedisTokenBucketRateLimit(this.redis, {
+			max: maxRequests,
+			refillIntervalSeconds: windowSeconds / maxRequests,
+			namespace: `api:${routeName}`,
+		});
+	}
+
+	/**
+	 * Create a rate limiter for user actions
+	 */
+	createForUserAction(
+		actionName: string,
+		maxActions: number,
+		refillIntervalSeconds: number,
+	): RedisTokenBucketRateLimit {
+		return new RedisTokenBucketRateLimit(this.redis, {
+			max: maxActions,
+			refillIntervalSeconds,
+			namespace: `user:${actionName}`,
+		});
+	}
+
+	/**
+	 * Create a custom rate limiter
+	 */
+	create(config: RateLimiterConfig): RedisTokenBucketRateLimit {
+		return new RedisTokenBucketRateLimit(this.redis, config);
+	}
+}

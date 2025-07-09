@@ -1,0 +1,27 @@
+{
+	"name": "@app/environment",
+	"module": "src/index.ts",
+	"type": "module",
+	"private": true,
+	"scripts": {
+		"build": "bun build index.ts --outdir=dist",
+		"lint": "biome check",
+		"format": "biome format --fix",
+		"test": "bun test",
+		"typecheck": "tsc --noEmit --skipLibCheck --strict --module esnext --target esnext index.ts"
+	},
+	"devDependencies": {
+		"@types/bun": "latest",
+		"@app/typescript-config": "workspace:*"
+	},
+	"peerDependencies": {
+		"typescript": "^5"
+	},
+	"dependencies": {
+		"dotenv": "^17.0.1",
+		"zod": "^3.25.74"
+	},
+	"exports": {
+		".": "./src/index.ts"
+	}
+}

@@ -1,0 +1,713 @@
+import type { Context, Next } from "hono";
+import type {
+	RateLimitResult,
+	RedisTokenBucketRateLimit,
+} from "../rate-limiter"; // Adjust import path
+
+/**
+ * Basic Hono rate limit middleware
+ * @param rateLimiter - Instance of RedisTokenBucketRateLimit
+ * @param keyExtractor - Function to extract rate limit key from context
+ * @param cost - Number of tokens to consume per request (default: 1)
+ */
+export function createHonoRateLimitMiddleware(
+	rateLimiter: RedisTokenBucketRateLimit,
+	keyExtractor: (c: Context) => string | Promise<string>,
+	cost: number = 1,
+) {
+	return async (c: Context, next: Next) => {
+		try {
+			const key = await keyExtractor(c);
+			const result = await rateLimiter.consume(key, cost);
+
+			// Set rate limit headers
+			c.header("X-RateLimit-Limit", rateLimiter["config"].max.toString());
+			c.header("X-RateLimit-Remaining", result.remaining.toString());
+			c.header("X-RateLimit-Reset", result.resetsAt.toISOString());
+
+			if (!result.allowed) {
+				c.header(
+					"Retry-After",
+					Math.ceil((result.resetsAt.getTime() - Date.now()) / 1000).toString(),
+				);
+				return c.json(
+					{
+						error: "Too Many Requests",
+						message: "Rate limit exceeded",
+						retryAfter: result.resetsAt,
+					},
+					429,
+				);
+			}
+
+			await next();
+		} catch (error) {
+			console.error("Rate limiting error:", error);
+			// Fail open - allow request if rate limiting fails
+			await next();
+		}
+	};
+}
+
+/**
+ * Advanced Hono rate limit middleware options
+ */
+export interface HonoRateLimitOptions {
+	keyExtractor?: (c: Context) => string | Promise<string>;
+	cost?: number;
+	skipSuccessfulRequests?: boolean;
+	skipFailedRequests?: boolean;
+	errorHandler?: (c: Context, error: Error) => Response | Promise<Response>;
+	onRateLimitReached?: (
+		c: Context,
+		result: RateLimitResult,
+	) => void | Promise<void>;
+	message?: string | ((c: Context, result: RateLimitResult) => any);
+	headers?: boolean;
+}
+
+/**
+ * Advanced Hono rate limit middleware with more options
+ */
+export function createAdvancedHonoRateLimitMiddleware(
+	rateLimiter: RedisTokenBucketRateLimit,
+	options: HonoRateLimitOptions = {},
+) {
+	const {
+		keyExtractor = (c) =>
+			c.req.header("x-forwarded-for") ||
+			c.req.header("x-real-ip") ||
+			"anonymous",
+		cost = 1,
+		skipSuccessfulRequests = false,
+		skipFailedRequests = false,
+		errorHandler,
+		onRateLimitReached,
+		message = "Rate limit exceeded",
+		headers = true,
+	} = options;
+
+	return async (c: Context, next: Next) => {
+		try {
+			const key = await keyExtractor(c);
+
+			// Check rate limit without consuming
+			const checkResult = await rateLimiter.check(key, cost);
+
+			// Set headers if enabled
+			if (headers) {
+				c.header("X-RateLimit-Limit", rateLimiter["config"].max.toString());
+				c.header("X-RateLimit-Remaining", checkResult.remaining.toString());
+				c.header("X-RateLimit-Reset", checkResult.resetsAt.toISOString());
+			}
+
+			if (!checkResult.allowed) {
+				if (onRateLimitReached) {
+					await onRateLimitReached(c, checkResult);
+				}
+
+				if (headers) {
+					c.header(
+						"Retry-After",
+						Math.ceil(
+							(checkResult.resetsAt.getTime() - Date.now()) / 1000,
+						).toString(),
+					);
+				}
+
+				const errorMessage =
+					typeof message === "function" ? message(c, checkResult) : message;
+
+				return c.json(
+					{
+						error: "Too Many Requests",
+						message: errorMessage,
+						retryAfter: checkResult.resetsAt,
+					},
+					429,
+				);
+			}
+
+			// Consume tokens before processing request (unless skipping successful)
+			if (!skipSuccessfulRequests) {
+				await rateLimiter.consume(key, cost);
+			}
+
+			await next();
+
+			// Optionally consume tokens only on failed requests
+			if (
+				skipSuccessfulRequests &&
+				!skipFailedRequests &&
+				c.res.status >= 400
+			) {
+				await rateLimiter.consume(key, cost);
+			}
+		} catch (error) {
+			console.error("Rate limiting error:", error);
+
+			if (errorHandler) {
+				return errorHandler(c, error as Error);
+			}
+
+			// Fail open - allow request if rate limiting fails
+			await next();
+		}
+	};
+}
+
+/**
+ * Common key extractors for Hono
+ */
+export const keyExtractors = {
+	// Extract IP address
+	ip: (c: Context): string => {
+		return (
+			c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ||
+			c.req.header("x-real-ip") ||
+			c.req.header("cf-connecting-ip") || // Cloudflare
+			"anonymous"
+		);
+	},
+
+	// Extract user ID from JWT Bearer token
+	bearerToken: async (c: Context): Promise<string> => {
+		const authorization = c.req.header("authorization");
+		if (!authorization?.startsWith("Bearer ")) {
+			return "anonymous";
+		}
+		const token = authorization.substring(7);
+		// Decode JWT and extract user ID (implement your JWT decoding logic)
+		// This is a simplified example
+		try {
+			// const payload = await verifyJWT(token);
+			// return `user:${payload.userId}`;
+			return `token:${token.substring(0, 10)}`; // Simplified
+		} catch {
+			return "anonymous";
+		}
+	},
+
+	// Extract API key
+	apiKey: (c: Context): string => {
+		const apiKey = c.req.header("x-api-key") || c.req.query("api_key");
+		return apiKey ? `api:${apiKey}` : "anonymous";
+	},
+
+	// Combine IP and user ID
+	ipAndUser: async (c: Context): Promise<string> => {
+		const ip = keyExtractors.ip(c);
+		const user = await keyExtractors.bearerToken(c);
+		return `${ip}:${user}`;
+	},
+};
+
+/**
+ * Helper to create route-specific rate limiters
+ */
+export function createRouteRateLimiter(
+	rateLimiterFactory: any, // Your RateLimiterFactory instance
+	routeName: string,
+	max: number,
+	windowSeconds: number,
+	options: Partial<HonoRateLimitOptions> = {},
+) {
+	const limiter = rateLimiterFactory.createForApiRoute(
+		routeName,
+		max,
+		windowSeconds,
+	);
+	return createAdvancedHonoRateLimitMiddleware(limiter, {
+		keyExtractor: keyExtractors.ip,
+		...options,
+	});
+}
+
+// ============================================
+// Usage Examples
+// ============================================
+
+/*
+import { Hono } from 'hono';
+import { Redis } from 'ioredis';
+import { RateLimiterFactory } from './redis-rate-limiter';
+
+// Initialize
+const redis = new Redis({
+  host: 'localhost',
+  port: 6379
+});
+
+const rateLimiterFactory = new RateLimiterFactory(redis);
+const app = new Hono();
+
+// Example 1: Global rate limiting by IP
+const globalLimiter = rateLimiterFactory.create({
+  max: 100,
+  refillIntervalSeconds: 1, // 100 requests per 100 seconds
+  namespace: 'global'
+});
+
+app.use('*', createHonoRateLimitMiddleware(
+  globalLimiter,
+  keyExtractors.ip
+));
+
+// Example 2: API endpoint with different limits for authenticated users
+const apiLimiter = rateLimiterFactory.createForApiRoute('api', 1000, 3600); // 1000/hour
+
+app.use('/api/*', createAdvancedHonoRateLimitMiddleware(apiLimiter, {
+  keyExtractor: async (c) => {
+    const auth = c.req.header('authorization');
+    if (auth?.startsWith('Bearer ')) {
+      return keyExtractors.bearerToken(c);
+    }
+    return keyExtractors.ip(c);
+  },
+  headers: true,
+  onRateLimitReached: async (c, result) => {
+    console.log(`Rate limit reached: ${await keyExtractors.ip(c)}`);
+  }
+}));
+
+// Example 3: Different limits for different routes
+app.use('/api/auth/login', createRouteRateLimiter(
+  rateLimiterFactory,
+  'login',
+  5,    // 5 attempts
+  300,  // per 5 minutes
+  {
+    message: 'Too many login attempts. Please try again later.',
+    skipSuccessfulRequests: true // Only count failed login attempts
+  }
+));
+
+app.use('/api/upload/*', createRouteRateLimiter(
+  rateLimiterFactory,
+  'upload',
+  10,   // 10 uploads
+  3600, // per hour
+  {
+    cost: 5, // Each upload costs 5 tokens
+    message: (c, result) => ({
+      error: 'Upload limit exceeded',
+      canUploadAgain: result.resetsAt,
+      remainingUploads: Math.floor(result.remaining / 5)
+    })
+  }
+));
+
+// Example 4: Different limits based on user tier
+const createTieredLimiter = (tier: 'free' | 'pro' | 'enterprise') => {
+  const limits = {
+    free: { max: 100, window: 3600 },      // 100/hour
+    pro: { max: 1000, window: 3600 },      // 1000/hour
+    enterprise: { max: 10000, window: 3600 } // 10000/hour
+  };
+
+  const { max, window } = limits[tier];
+  return rateLimiterFactory.createForApiRoute(`tier-${tier}`, max, window);
+};
+
+app.use('/api/data/*', async (c, next) => {
+  // Get user tier from your auth system
+  const tier = c.get('userTier') || 'free';
+  const limiter = createTieredLimiter(tier);
+  
+  return createHonoRateLimitMiddleware(
+    limiter,
+    keyExtractors.bearerToken
+  )(c, next);
+});
+
+// Example 5: Rate limit with custom error response
+app.use('/api/ai/*', createAdvancedHonoRateLimitMiddleware(
+  rateLimiterFactory.createForApiRoute('ai', 20, 60), // 20 req/min
+  {
+    keyExtractor: keyExtractors.apiKey,
+    errorHandler: async (c, error) => {
+      // Log error to monitoring service
+      console.error('AI rate limiter error:', error);
+      
+      // Return custom error response
+      return c.json({
+        error: 'Service temporarily unavailable',
+        message: 'Please try again in a few moments',
+        statusCode: 503
+      }, 503);
+    },
+    message: (c, result) => {
+      const waitTime = Math.ceil((result.resetsAt.getTime() - Date.now()) / 1000);
+      return `AI API limit reached. Please wait ${waitTime} seconds.`;
+    }
+  }
+));
+
+// Example 6: GraphQL endpoint with cost-based limiting
+app.post('/graphql', createAdvancedHonoRateLimitMiddleware(
+  rateLimiterFactory.create({
+    max: 1000,
+    refillIntervalSeconds: 1,
+    namespace: 'graphql'
+  }),
+  {
+    keyExtractor: keyExtractors.bearerToken,
+    cost: 1, // Default cost, can be overridden based on query complexity
+    skipFailedRequests: true,
+    headers: false, // Don't expose rate limit info for GraphQL
+    message: {
+      errors: [{
+        message: 'Query rate limit exceeded',
+        extensions: {
+          code: 'RATE_LIMITED'
+        }
+      }]
+    }
+  }
+));
+
+// Example 7: Using with @hono/zod-openapi
+import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
+import { apiReference } from '@scalar/hono-api-reference';
+
+// Create OpenAPI app
+const openApiApp = new OpenAPIHono();
+
+// Define rate limit error schema for OpenAPI documentation
+const RateLimitErrorSchema = z.object({
+  error: z.string(),
+  message: z.string(),
+  retryAfter: z.string().datetime()
+}).openapi('RateLimitError');
+
+// Helper to create OpenAPI route with rate limiting
+function createRateLimitedRoute<T extends ReturnType<typeof createRoute>>(
+  route: T,
+  rateLimiter: any,
+  options: Partial<HonoRateLimitOptions> = {}
+) {
+  // Add rate limit error response to route definition
+  const enhancedRoute = {
+    ...route,
+    responses: {
+      ...route.responses,
+      429: {
+        content: {
+          'application/json': {
+            schema: RateLimitErrorSchema
+          }
+        },
+        description: 'Too Many Requests',
+        headers: {
+          'X-RateLimit-Limit': {
+            schema: { type: 'string' },
+            description: 'Request limit per window'
+          },
+          'X-RateLimit-Remaining': {
+            schema: { type: 'string' },
+            description: 'Remaining requests in window'
+          },
+          'X-RateLimit-Reset': {
+            schema: { type: 'string', format: 'date-time' },
+            description: 'Time when rate limit resets'
+          },
+          'Retry-After': {
+            schema: { type: 'string' },
+            description: 'Seconds until retry'
+          }
+        }
+      }
+    }
+  };
+
+  return {
+    route: enhancedRoute,
+    middleware: createAdvancedHonoRateLimitMiddleware(rateLimiter, options)
+  };
+}
+
+// Example routes with different rate limits
+const UserSchema = z.object({
+  id: z.string(),
+  email: z.string().email(),
+  name: z.string()
+}).openapi('User');
+
+// 1. Public endpoint - rate limited by IP
+const publicUsersRoute = createRateLimitedRoute(
+  createRoute({
+    method: 'get',
+    path: '/users',
+    summary: 'List all users',
+    description: 'Public endpoint to list users (rate limited)',
+    tags: ['Users'],
+    responses: {
+      200: {
+        content: {
+          'application/json': {
+            schema: z.array(UserSchema)
+          }
+        },
+        description: 'List of users'
+      }
+    }
+  }),
+  rateLimiterFactory.createForApiRoute('public-users', 10, 60), // 10 req/min
+  {
+    keyExtractor: keyExtractors.ip
+  }
+);
+
+openApiApp.openapi(
+  publicUsersRoute.route,
+  publicUsersRoute.middleware,
+  async (c) => {
+    // Handler logic
+    return c.json([
+      { id: '1', email: 'user@example.com', name: 'John Doe' }
+    ]);
+  }
+);
+
+// 2. Authenticated endpoint - rate limited by user ID from validated input
+const AuthHeaderSchema = z.object({
+  authorization: z.string().regex(/^Bearer .+$/)
+});
+
+const getUserRoute = createRateLimitedRoute(
+  createRoute({
+    method: 'get',
+    path: '/users/{id}',
+    summary: 'Get user by ID',
+    tags: ['Users'],
+    request: {
+      params: z.object({
+        id: z.string()
+      }),
+      headers: AuthHeaderSchema
+    },
+    responses: {
+      200: {
+        content: {
+          'application/json': {
+            schema: UserSchema
+          }
+        },
+        description: 'User details'
+      },
+      404: {
+        description: 'User not found'
+      }
+    },
+    security: [{ BearerAuth: [] }]
+  }),
+  rateLimiterFactory.createForApiRoute('get-user', 100, 60), // 100 req/min
+  {
+    keyExtractor: keyExtractors.bearerToken
+  }
+);
+
+openApiApp.openapi(
+  getUserRoute.route,
+  getUserRoute.middleware,
+  async (c) => {
+    const { id } = c.req.valid('param');
+    return c.json({ id, email: 'user@example.com', name: 'John Doe' });
+  }
+);
+
+// 3. Create user - stricter rate limit with request body validation
+const CreateUserSchema = z.object({
+  email: z.string().email(),
+  name: z.string().min(2),
+  password: z.string().min(8)
+}).openapi('CreateUserInput');
+
+const createUserRoute = createRateLimitedRoute(
+  createRoute({
+    method: 'post',
+    path: '/users',
+    summary: 'Create a new user',
+    tags: ['Users'],
+    request: {
+      body: {
+        content: {
+          'application/json': {
+            schema: CreateUserSchema
+          }
+        }
+      }
+    },
+    responses: {
+      201: {
+        content: {
+          'application/json': {
+            schema: UserSchema
+          }
+        },
+        description: 'User created'
+      },
+      400: {
+        description: 'Invalid input'
+      }
+    }
+  }),
+  rateLimiterFactory.createForApiRoute('create-user', 5, 300), // 5 per 5 minutes
+  {
+    keyExtractor: async (c) => {
+      // Rate limit by email to prevent spam
+      const body = await c.req.json();
+      return `email:${body.email || 'unknown'}`;
+    },
+    skipSuccessfulRequests: true, // Only count failed attempts
+    message: 'Too many registration attempts. Please try again later.'
+  }
+);
+
+openApiApp.openapi(
+  createUserRoute.route,
+  createUserRoute.middleware,
+  async (c) => {
+    const data = c.req.valid('json');
+    // Create user logic
+    return c.json(
+      { id: '123', email: data.email, name: data.name },
+      201
+    );
+  }
+);
+
+// 4. Admin endpoint with higher limits
+const adminRoute = createRateLimitedRoute(
+  createRoute({
+    method: 'delete',
+    path: '/admin/users/{id}',
+    summary: 'Delete user (Admin only)',
+    tags: ['Admin'],
+    request: {
+      params: z.object({
+        id: z.string()
+      }),
+      headers: z.object({
+        'x-admin-key': z.string()
+      })
+    },
+    responses: {
+      204: {
+        description: 'User deleted'
+      },
+      403: {
+        description: 'Forbidden'
+      }
+    },
+    security: [{ AdminKey: [] }]
+  }),
+  rateLimiterFactory.createForApiRoute('admin', 1000, 60), // 1000 req/min
+  {
+    keyExtractor: (c) => c.req.header('x-admin-key') || 'no-key'
+  }
+);
+
+openApiApp.openapi(
+  adminRoute.route,
+  adminRoute.middleware,
+  async (c) => {
+    const { id } = c.req.valid('param');
+    // Delete user logic
+    return c.body(null, 204);
+  }
+);
+
+// 5. File upload with size-based rate limiting
+const uploadRoute = createRateLimitedRoute(
+  createRoute({
+    method: 'post',
+    path: '/upload',
+    summary: 'Upload file',
+    tags: ['Files'],
+    request: {
+      body: {
+        content: {
+          'multipart/form-data': {
+            schema: z.object({
+              file: z.instanceof(File),
+              description: z.string().optional()
+            })
+          }
+        }
+      }
+    },
+    responses: {
+      200: {
+        content: {
+          'application/json': {
+            schema: z.object({
+              url: z.string(),
+              size: z.number()
+            })
+          }
+        },
+        description: 'File uploaded'
+      }
+    }
+  }),
+  rateLimiterFactory.create({
+    max: 100, // 100 MB worth of tokens
+    refillIntervalSeconds: 36, // Refill 100 MB per hour
+    namespace: 'upload'
+  }),
+  {
+    keyExtractor: keyExtractors.bearerToken,
+    cost: 10, // Each upload costs 10 tokens (10 MB)
+    message: (c, result) => {
+      const remainingMB = Math.floor(result.remaining);
+      return `Upload limit exceeded. You can upload ${remainingMB} MB more after ${result.resetsAt.toISOString()}`;
+    }
+  }
+);
+
+openApiApp.openapi(
+  uploadRoute.route,
+  uploadRoute.middleware,
+  async (c) => {
+    // Upload logic
+    return c.json({ url: 'https://example.com/file.pdf', size: 1024000 });
+  }
+);
+
+// Setup OpenAPI documentation
+openApiApp.doc('/openapi.json', {
+  openapi: '3.0.0',
+  info: {
+    title: 'Rate Limited API',
+    version: '1.0.0',
+    description: 'API with token bucket rate limiting'
+  },
+  servers: [
+    { url: 'http://localhost:3000', description: 'Local server' }
+  ],
+  security: [],
+  components: {
+    securitySchemes: {
+      BearerAuth: {
+        type: 'http',
+        scheme: 'bearer'
+      },
+      AdminKey: {
+        type: 'apiKey',
+        in: 'header',
+        name: 'x-admin-key'
+      }
+    }
+  }
+});
+
+// Add API documentation UI
+openApiApp.get('/docs', apiReference({
+  spec: {
+    url: '/openapi.json'
+  }
+}));
+
+export default app;
+*/

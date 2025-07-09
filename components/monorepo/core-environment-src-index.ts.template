@@ -1,0 +1,12 @@
+import path from "node:path";
+import { config } from "dotenv";
+
+const pathToEnv = path.resolve(__dirname, "../../../.env");
+config({
+	path: pathToEnv,
+});
+
+export const getEnvVars = (schema: any): any => {
+	const envVars = schema.parse(process.env);
+	return envVars;
+};

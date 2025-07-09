@@ -1,0 +1,31 @@
+{
+	"name": "phyter-modules-monorepo",
+	"type": "module",
+	"private": true,
+	"devDependencies": {
+		"@biomejs/biome": "2.0.6",
+		"@types/bun": "latest"
+	},
+	"peerDependencies": {
+		"typescript": "^5"
+	},
+	"workspaces": ["backend/*", "core/*", "frontend/*", "modules/*"],
+	"scripts": {
+		"dev": "bun --filter '*' dev",
+		"start": "bun --filter '*' start",
+		"build": "bun --filter '*' build",
+		"serve": "bun --filter '*' serve",
+		"test": "bun --filter '*' test",
+		"format": "biome format --fix",
+		"lint": "biome lint",
+		"check": "biome check",
+		"build:server": "cd backend/server && bun run build",
+		"start:server": "cd backend/server && bun run start",
+		"build:app": "cd frontend/app && bun run build",
+		"start:app": "cd frontend/app && bun run start",
+		"migrate": "cd packages/data && bun run migrate",
+		"migrate:generate": "cd packages/data && bun run migrate:generate"
+	},
+	"dependencies": {
+	}
+}

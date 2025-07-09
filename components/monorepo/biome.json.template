@@ -1,0 +1,62 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.0.6/schema.json",
+	"vcs": {
+		"enabled": false,
+		"clientKind": "git",
+		"useIgnoreFile": false
+	},
+	"files": {
+		"includes": ["**/src/**/*.{ts,tsx}"],
+		"experimentalScannerIgnores": [
+			"**/routeTree.gen.ts",
+			"**/dist/**/*",
+			"**/build/**/*",
+			"**/node_modules/**/*",
+			"**/.output/**/*",
+			"**/.nitro/**/*"
+		],
+		"ignoreUnknown": false
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab"
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true,
+			"complexity": {
+				"noStaticOnlyClass": "off"
+			},
+			"suspicious": {
+				"noExplicitAny": "off"
+			},
+			"style": {
+				"noParameterAssign": "error",
+				"useAsConstAssertion": "error",
+				"useDefaultParameterLast": "error",
+				"useEnumInitializers": "error",
+				"useSelfClosingElements": "error",
+				"useSingleVarDeclarator": "error",
+				"noUnusedTemplateLiteral": "error",
+				"useNumberNamespace": "error",
+				"noUselessElse": "error"
+			}
+		}
+	},
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "double"
+		}
+	},
+
+	"assist": {
+		"enabled": true,
+		"includes": ["**/src/**/*.{ts,tsx,js,jsx}"],
+		"actions": {
+			"source": {
+				"organizeImports": "on"
+			}
+		}
+	}
+}
