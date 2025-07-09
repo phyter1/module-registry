@@ -1,0 +1,200 @@
+import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { logger } from '@app/utils/logger';
+import { signUpSchema, signInSchema, tokenPairSchema } from '@app/core/types/auth';
+import { AuthService } from '../services/auth';
+
+export function createAuthRoutes(db: PostgresJsDatabase) {
+  const app = new OpenAPIHono();
+  const authService = new AuthService(db);
+
+  // Sign up route
+  const signUpRoute = createRoute({
+      method: 'post',
+    path: '/signup',
+    request: {
+        body: {
+          content: {
+            'application/json': {
+              schema: signUpSchema,
+          },
+        },
+      },
+    },
+    responses: {
+        200: {
+          content: {
+            'application/json': {
+              schema: z.object({
+                user: z.object({
+                  id: z.string().uuid(),
+                email: z.string().email(),
+                emailVerified: z.boolean(),
+                createdAt: z.string(),
+                updatedAt: z.string(),
+              }),
+              tokens: tokenPairSchema,
+            }),
+          },
+        },
+        description: 'User successfully created',
+      },
+      400: {
+          content: {
+            'application/json': {
+              schema: z.object({
+                error: z.string(),
+            }),
+          },
+        },
+        description: 'Bad request',
+      },
+    },
+  });
+
+  app.openapi(signUpRoute, async (c) => {
+      try {
+        const body = c.req.valid('json');
+      const result = await authService.signUp(body);
+      return con(result);
+    } catch (error) {
+        logger.error('Sign up failed', { error });
+      return con({ error: error.message }, 400);
+    }
+  });
+
+  // Sign in route
+  const signInRoute = createRoute({
+      method: 'post',
+    path: '/signin',
+    request: {
+        body: {
+          content: {
+            'application/json': {
+              schema: signInSchema,
+          },
+        },
+      },
+    },
+    responses: {
+        200: {
+          content: {
+            'application/json': {
+              schema: z.object({
+                user: z.object({
+                  id: z.string().uuid(),
+                email: z.string().email(),
+                emailVerified: z.boolean(),
+                createdAt: z.string(),
+                updatedAt: z.string(),
+              }),
+              tokens: tokenPairSchema,
+            }),
+          },
+        },
+        description: 'User successfully signed in',
+      },
+      401: {
+          content: {
+            'application/json': {
+              schema: z.object({
+                error: z.string(),
+            }),
+          },
+        },
+        description: 'Invalid credentials',
+      },
+    },
+  });
+
+  app.openapi(signInRoute, async (c) => {
+      try {
+        const body = c.req.valid('json');
+      const result = await authService.signIn(body);
+      return con(result);
+    } catch (error) {
+        logger.error('Sign in failed', { error });
+      return con({ error: 'Invalid credentials' }, 401);
+    }
+  });
+
+  // Refresh token route
+  const refreshRoute = createRoute({
+      method: 'post',
+    path: '/refresh',
+    request: {
+        body: {
+          content: {
+            'application/json': {
+              schema: z.object({
+                refreshToken: z.string(),
+            }),
+          },
+        },
+      },
+    },
+    responses: {
+        200: {
+          content: {
+            'application/json': {
+              schema: tokenPairSchema,
+          },
+        },
+        description: 'Tokens refreshed successfully',
+      },
+      401: {
+          content: {
+            'application/json': {
+              schema: z.object({
+                error: z.string(),
+            }),
+          },
+        },
+        description: 'Invalid refresh token',
+      },
+    },
+  });
+
+  app.openapi(refreshRoute, async (c) => {
+      try {
+        const { refreshToken } = c.req.valid('json');
+      const tokens = await authService.refreshTokens(refreshToken);
+      return con(tokens);
+    } catch (error) {
+        logger.error('Token refresh failed', { error });
+      return con({ error: 'Invalid refresh token' }, 401);
+    }
+  });
+
+  // Sign out route
+  const signOutRoute = createRoute({
+      method: 'post',
+    path: '/signout',
+    security: [{ BearerAuth: [] }],
+    responses: {
+        200: {
+          content: {
+            'application/json': {
+              schema: z.object({
+                message: z.string(),
+            }),
+          },
+        },
+        description: 'User signed out successfully',
+      },
+    },
+  });
+
+  app.openapi(signOutRoute, async (c) => {
+      try {
+        const user = c.get('user');
+      await authService.signOut(user.id);
+      return con({ message: 'Signed out successfully' });
+    } catch (error) {
+        logger.error('Sign out failed', { error });
+      return con({ error: 'Sign out failed' }, 500);
+    }
+  });
+
+  return app;
+}

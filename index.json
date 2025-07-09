@@ -1,0 +1,30 @@
+{
+  "version": "1.0.0",
+  "components": [
+    {
+      "name": "auth",
+      "description": "Complete authentication module with JWT and password hashing",
+      "version": "1.0.0",
+      "type": "module",
+      "dependencies": ["logger"],
+      "devDependencies": {
+        "@hono/zod-openapi": "^0.16.0",
+        "argon2": "^0.31.0",
+        "drizzle-orm": "^0.29.0",
+        "jose": "^5.2.0",
+        "zod": "^3.22.0"
+      }
+    },
+    {
+      "name": "logger",
+      "description": "Structured logging utility with context support",
+      "version": "1.0.0",
+      "type": "core",
+      "dependencies": [],
+      "devDependencies": {
+        "pino": "^8.17.0",
+        "pino-pretty": "^10.3.0"
+      }
+    }
+  ]
+}

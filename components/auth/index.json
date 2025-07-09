@@ -1,0 +1,61 @@
+{
+  "name": "auth",
+  "description": "Complete authentication module with JWT and password hashing",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": ["logger"],
+  "devDependencies": {
+    "@hono/zod-openapi": "^0.16.0",
+    "argon2": "^0.31.0",
+    "drizzle-orm": "^0.29.0",
+    "jose": "^5.2.0",
+    "zod": "^3.22.0"
+  },
+  "files": [
+    {
+      "path": "src/postgres/schema/users.ts",
+      "target": "coreData",
+      "content": "postgres-schema-users.ts.template"
+    },
+    {
+      "path": "src/postgres/schema/tokens.ts",
+      "target": "coreData",
+      "content": "postgres-schema-tokens.ts.template"
+    },
+    {
+      "path": "src/auth.ts",
+      "target": "coreTypes",
+      "content": "auth.ts.template"
+    },
+    {
+      "path": "src/services/password.ts",
+      "target": "module",
+      "content": "services-password.ts.template"
+    },
+    {
+      "path": "src/services/jwt.ts",
+      "target": "module",
+      "content": "services-jwt.ts.template"
+    },
+    {
+      "path": "src/services/auth.ts",
+      "target": "module",
+      "content": "services-auth.ts.template"
+    },
+    {
+      "path": "src/routes/auth.ts",
+      "target": "module",
+      "content": "routes-auth.ts.template"
+    },
+    {
+      "path": "src/middleware/auth.ts",
+      "target": "module",
+      "content": "middleware-auth.ts.template"
+    },
+    {
+      "path": "src/index.ts",
+      "target": "module",
+      "content": "index.ts.template"
+    }
+  ]
+}

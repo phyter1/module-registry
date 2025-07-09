@@ -1,0 +1,23 @@
+export { AuthService } from './services/auth';
+export { PasswordService } from './services/password';
+export { JWTService } from './services/jwt';
+export { createAuthRoutes } from './routes/auth';
+export { createAuthMiddleware } from './middleware/auth';
+
+// Re-export types
+export type {
+  SignUpInput,
+  SignInInput,
+  TokenPair,
+  JWTPayload,
+} from '@app/core/types/auth';
+
+export type {
+  User,
+  NewUser,
+} from '@app/core/data/schema/users';
+
+export type {
+  Token,
+  NewToken,
+} from '@app/core/data/schema/tokens';

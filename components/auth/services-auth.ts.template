@@ -1,0 +1,176 @@
+import { eq } from 'drizzle-orm';
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { logger } from '@app/utils/logger';
+import { users, tokens } from '@app/core/data/schema/index';
+import type { User, NewUser } from '@app/core/data/schema/users';
+import type { SignUpInput, SignInInput, TokenPair } from '@app/core/types/auth';
+import { PasswordService } from './password';
+import { JWTService } from './jwt';
+
+export class AuthService {
+  private passwordService: PasswordService;
+  private jwtService: JWTService;
+
+  constructor(private db: PostgresJsDatabase) {
+    this.passwordService = new PasswordService();
+    this.jwtService = new JWTService();
+  }
+
+  async signUp(input: SignUpInput): Promise<{ user: User; tokens: TokenPair }> {
+    const { email, password } = input;
+
+    // Check if user already exists
+    const existingUser = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+
+    if (existingUser.length > 0) {
+      throw new Error('User already exists');
+    }
+
+    // Validate password strength
+    const passwordValidation = this.passwordService.validateStrength(password);
+    if (!passwordValidation.valid) {
+      throw new Error(`Password validation failed: ${passwordValidation.errors.join(', ')}`);
+    }
+
+    // Hash password
+    const passwordHash = await this.passwordService.hash(password);
+
+    // Create user
+    const [newUser] = await this.db
+      .insert(users)
+      .values({
+        email,
+        passwordHash,
+      })
+      .returning({
+        id: users.id,
+        email: users.email,
+        emailVerified: users.emailVerified,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+      });
+
+    // Generate tokens
+    const tokenPair = await this.jwtService.generateTokenPair(newUser.id, newUser.email);
+
+    // Store refresh token
+    await this.db.insert(tokens).values({
+      userId: newUser.id,
+      token: tokenPair.refreshToken,
+      type: 'refresh',
+      expiresAt: this.jwtService.getExpirationDate('7d'),
+    });
+
+    logger.info('User signed up successfully', { userId: newUser.id });
+
+    return {
+      user: newUser,
+      tokens: tokenPair,
+    };
+  }
+
+  async signIn(input: SignInInput): Promise<{ user: User; tokens: TokenPair }> {
+    const { email, password } = input;
+
+    // Find user
+    const [user] = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+
+    if (!user) {
+      throw new Error('Invalid credentials');
+    }
+
+    // Verify password
+    const isPasswordValid = await this.passwordService.verify(user.passwordHash, password);
+    if (!isPasswordValid) {
+      throw new Error('Invalid credentials');
+    }
+
+    // Generate tokens
+    const tokenPair = await this.jwtService.generateTokenPair(user.id, user.email);
+
+    // Store refresh token
+    await this.db.insert(tokens).values({
+      userId: user.id,
+      token: tokenPair.refreshToken,
+      type: 'refresh',
+      expiresAt: this.jwtService.getExpirationDate('7d'),
+    });
+
+    logger.info('User signed in successfully', { userId: user.id });
+
+    const { passwordHash, ...userWithoutPassword } = user;
+
+    return {
+      user: userWithoutPassword,
+      tokens: tokenPair,
+    };
+  }
+
+  async refreshTokens(refreshToken: string): Promise<TokenPair> {
+    // Verify refresh token
+    const payload = await this.jwtService.verifyRefreshToken(refreshToken);
+
+    // Check if token exists in database
+    const [storedToken] = await this.db
+      .select()
+      .from(tokens)
+      .where(eq(tokens.token, refreshToken))
+      .limit(1);
+
+    if (!storedToken || storedToken.expiresAt < new Date()) {
+      throw new Error('Invalid refresh token');
+    }
+
+    // Delete old refresh token
+    await this.db.delete(tokens).where(eq(tokens.id, storedToken.id));
+
+    // Generate new token pair
+    const newTokenPair = await this.jwtService.generateTokenPair(payload.sub, payload.email);
+
+    // Store new refresh token
+    await this.db.insert(tokens).values({
+      userId: payload.sub,
+      token: newTokenPair.refreshToken,
+      type: 'refresh',
+      expiresAt: this.jwtService.getExpirationDate('7d'),
+    });
+
+    return newTokenPair;
+  }
+
+  async signOut(userId: string): Promise<void> {
+    // Delete all user tokens
+    await this.db.delete(tokens).where(eq(tokens.userId, userId));
+    logger.info('User signed out successfully', { userId });
+  }
+
+  async verifyAccessToken(token: string): Promise<User> {
+    const payload = await this.jwtService.verifyAccessToken(token);
+
+    const [user] = await this.db
+      .select({
+        id: users.id,
+        email: users.email,
+        emailVerified: users.emailVerified,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+      })
+      .from(users)
+      .where(eq(users.id, payload.sub))
+      .limit(1);
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    return user;
+  }
+}
