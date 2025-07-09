@@ -20,9 +20,9 @@
       "content": "base.json.template"
     },
     {
-      "path": "base-bun.json",
+      "path": "bun-base.json",
       "target": "coreTSConfig",
-      "content": "base-bun.json.template"
+      "content": "bun-base.json.template"
     },
     {
       "path": "react-library.json",
