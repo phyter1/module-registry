@@ -36,7 +36,7 @@
     {
       "path": "core/typescript-config/bun-base.json",
       "target": "project",
-      "content": "core-typescript-config-tsconfig.json.template"
+      "content": "core-typescript-config-bun-base.json.template"
     },
     {
       "path": "core/typescript-config/base.json",
