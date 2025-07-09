@@ -33,7 +33,7 @@
     {
       "path": "src/index.ts",
       "target": "coreEnvironment",
-      "content": "index.ts.template"
+      "content": "src-index.ts.template"
     }
   ]
 }
