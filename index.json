@@ -2,29 +2,43 @@
   "version": "1.0.0",
   "components": [
     {
+      "name": "monorepo",
+      "description": "Monorepo structure for managing multiple modules",
+      "version": "1.0.0",
+      "type": "project",
+      "internalDependencies": [],
+      "externalDependencies": [],
+      "internalDevDependencies": [],
+      "externalDevDependencies": []
+    },
+    {
       "name": "auth",
       "description": "Complete authentication module with JWT and password hashing",
       "version": "1.0.0",
       "type": "module",
-      "dependencies": ["logger"],
-      "devDependencies": {
+      "internalDependencies": ["logger"],
+      "internalDevDependencies": [],
+      "externalDependencies": {
         "@hono/zod-openapi": "^0.16.0",
         "argon2": "^0.31.0",
         "drizzle-orm": "^0.29.0",
         "jose": "^5.2.0",
         "zod": "^3.22.0"
-      }
+      },
+      "externalDevDependencies": []
     },
     {
       "name": "logger",
       "description": "Structured logging utility with context support",
       "version": "1.0.0",
       "type": "core",
-      "dependencies": [],
-      "devDependencies": {
+      "internalDependencies": [],
+      "internalDevDependencies": [],
+      "externalDependencies": {
         "pino": "^8.17.0",
         "pino-pretty": "^10.3.0"
-      }
+      },
+      "externalDevDependencies": []
     }
   ]
 }

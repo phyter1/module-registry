@@ -3,14 +3,16 @@
   "description": "Complete authentication module with JWT and password hashing",
   "version": "1.0.0",
   "type": "module",
-  "dependencies": ["logger"],
-  "devDependencies": {
+  "internalDependencies": ["logger"],
+  "internalDevDependencies": [],
+  "externalDependencies": {
     "@hono/zod-openapi": "^0.16.0",
     "argon2": "^0.31.0",
     "drizzle-orm": "^0.29.0",
     "jose": "^5.2.0",
     "zod": "^3.22.0"
   },
+  "externalDevDependencies": [],
   "files": [
     {
       "path": "src/postgres/schema/users.ts",

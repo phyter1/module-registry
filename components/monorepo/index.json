@@ -1,0 +1,11 @@
+{
+  "name": "monorepo",
+  "description": "Monorepo structure for managing multiple modules",
+  "version": "1.0.0",
+  "type": "project",
+  "internalDependencies": [],
+  "externalDependencies": [],
+  "internalDevDependencies": [],
+  "externalDevDependencies": [],
+  "files": []
+}
