@@ -1,0 +1,39 @@
+{
+  "name": "environment",
+  "description": "Environment variable utility for managing typed and validated environment variables in a monorepo",
+  "version": "1.0.0",
+  "type": "core",
+  "internalDependencies": [],
+  "internalDevDependencies": ["typescript_config"],
+  "externalDependencies": {
+		"dotenv": "^17.0.1",
+		"zod": "^3.25.74"
+  },
+  "externalPeerDependencies": { "typescript": "^5" },
+  "externalDevDependencies": {
+    "@types/bun": "latest"
+  },
+
+  "files": [
+    {
+      "path": "package.json",
+      "target": "coreEnvironment",
+      "content": "package.json.template"
+    },
+    {
+      "path": ".env",
+      "target": "root",
+      "content": ".env.template"
+    },
+    {
+      "path": "tsconfig.json",
+      "target": "coreEnvironment",
+      "content": "tsconfig.json.template"
+    },
+    {
+      "path": "src/index.ts",
+      "target": "coreEnvironment",
+      "content": "index.ts.template"
+    }
+  ]
+}

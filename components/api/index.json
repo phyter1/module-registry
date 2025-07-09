@@ -1,0 +1,97 @@
+{
+  "name": "api",
+  "description": "API core package for the monorepo, providing rate limiting and error handling middleware, etc.",
+  "version": "1.0.0",
+  "type": "core",
+  "internalDependencies": [
+    "environment"
+  ],
+  "internalDevDependencies": [
+    "typescript_config"
+  ],
+  "externalDependencies": {
+    "@hono/zod-openapi": "^0.19.9"
+  },
+  "externalPeerDependencies": { "typescript": "^5" },
+  "externalDevDependencies": {
+    "@types/bun": "latest"
+  },
+
+  "files": [
+    {
+      "path": "package.json",
+      "target": "root",
+      "content": "package.json.template"
+    },
+    {
+      "path": "biome.json",
+      "target": "root",
+      "content": "biome.json.template"
+    },
+    {
+      "path": ".env",
+      "target": "root",
+      "content": ".env.template"
+    },
+    {
+      "path": "package.json",
+      "target": "coreTSConfig",
+      "content": "core-typescript-config-package.json.template"
+    },
+    {
+      "path": "bun-base.json",
+      "target": "coreTSConfig",
+      "content": "core-typescript-config-bun-base.json.template"
+    },
+    {
+      "path": "base.json",
+      "target": "coreTSConfig",
+      "content": "core-typescript-config-base.json.template"
+    },
+    {
+      "path": "react-library.json",
+      "target": "coreTSConfig",
+      "content": "core-typescript-config-react-library.json.template"
+    },
+    {
+      "path": "package.json",
+      "target": "coreApi",
+      "content": "core-api-package.json.template"
+    },
+    {
+      "path": "tsconfig.json",
+      "target": "coreApi",
+      "content": "core-api-tsconfig.json.template"
+    },
+    {
+      "path": "src/rate-limiter.ts",
+      "target": "coreApi",
+      "content": "core-api-src-rate-limiter.ts.template"
+    },
+    {
+      "path": "src/middleware/rate-limiting.ts",
+      "target": "coreApi",
+      "content": "core-api-src-middleware-rate-limiting.ts.template"
+    },
+    {
+      "path": "src/routes/errors.ts",
+      "target": "coreApi",
+      "content": "core-api-src-routes-errors.ts.template"
+    },
+    {
+      "path": "package.json",
+      "target": "coreEnvironment",
+      "content": "core-environment-package.json.template"
+    },
+    {
+      "path": "tsconfig.json",
+      "target": "coreEnvironment",
+      "content": "core-environment-tsconfig.json.template"
+    },
+    {
+      "path": "src/index.ts",
+      "target": "coreEnvironment",
+      "content": "core-environment-src-index.ts.template"
+    }
+  ]
+}

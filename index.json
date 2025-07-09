@@ -8,16 +8,28 @@
       "type": "project"
     },
     {
-      "name": "auth",
-      "description": "Complete authentication module with JWT and password hashing",
-      "version": "1.0.0",
-      "type": "module"
-    },
-    {
-      "name": "logger",
-      "description": "Structured logging utility with context support",
+      "name": "api",
+      "description": "API core package for the monorepo, providing rate limiting and error handling middleware, etc.",
       "version": "1.0.0",
       "type": "core"
+    },
+    {
+      "name": "environment",
+      "description": "Environment variable utility for managing typed and validated environment variables in a monorepo",
+      "version": "1.0.0",
+      "type": "core"
+    },
+    {
+      "name": "typescript_config",
+      "description": "Typescript configuration files",
+      "version": "1.0.0",
+      "type": "core"
+    },
+    {
+      "name": "server",
+      "description": "API server based on Hono with TypeScript and Bun",
+      "version": "1.0.0",
+      "type": "project"
     }
   ]
 }

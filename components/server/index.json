@@ -1,0 +1,48 @@
+{
+  "name": "server",
+  "description": "API server based on Hono with TypeScript and Bun",
+  "version": "1.0.0",
+  "type": "project",
+  "internalDependencies": [],
+  "internalDevDependencies": [
+    "typescript_config"
+  ],
+  "externalDependencies": {
+		"@hono/zod-openapi": "^0.19.9",
+		"@scalar/hono-api-reference": "^0.9.7",
+		"@scalar/openapi-to-markdown": "^0.2.17",
+		"hono": "^4.8.3",
+		"zod": "^3.25.71"
+	},
+  "externalPeerDependencies": { "typescript": "^5" },
+  "externalDevDependencies": {
+		"@types/bun": "latest"
+  },
+  "files": [
+    {
+      "path": "backend/server/package.json",
+      "target": "root",
+      "content": "package.json.template"
+    },
+    {
+      "path": "backend/server/tsconfig.json",
+      "target": "root",
+      "content": "tsconfig.json.template"
+    },
+    {
+      "path": "backend/server/src/index.ts",
+      "target": "root",
+      "content": "src-index.ts.template"
+    },
+    {
+      "path": "backend/server/src/routes/hello-world.ts",
+      "target": "root",
+      "content": "src-routes-hello-world.ts.template"
+    },
+    {
+      "path": "backend/server/src/client.ts",
+      "target": "root",
+      "content": "src-client.ts.template"
+    }
+  ]
+}

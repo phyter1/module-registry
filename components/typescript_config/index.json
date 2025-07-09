@@ -1,0 +1,33 @@
+{
+  "name": "typescript_config",
+  "description": "Typescript configuration files",
+  "version": "1.0.0",
+  "type": "core",
+  "internalDependencies": [],
+  "internalDevDependencies": [],
+  "externalDependencies": [],
+  "externalPeerDependencies": {},
+  "externalDevDependencies": {},
+  "files": [
+    {
+      "path": "package.json",
+      "target": "coreTSConfig",
+      "content": "package.json.template"
+    },
+    {
+      "path": "base.json",
+      "target": "coreTSConfig",
+      "content": "base.json.template"
+    },
+    {
+      "path": "base-bun.json",
+      "target": "coreTSConfig",
+      "content": "base-bun.json.template"
+    },
+    {
+      "path": "react-library.json",
+      "target": "coreTSConfig",
+      "content": "react-library.json.template"
+    }
+  ]
+}

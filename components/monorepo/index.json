@@ -5,7 +5,7 @@
   "type": "project",
   "internalDependencies": [],
   "internalDevDependencies": [],
-  "externalDependencies": [],
+  "externalDependencies": {},
   "externalPeerDependencies": { "typescript": "^5" },
   "externalDevDependencies": {
     "@biomejs/biome": "2.0.6",
@@ -15,103 +15,13 @@
   "files": [
     {
       "path": "package.json",
-      "target": "project",
+      "target": "root",
       "content": "package.json.template"
     },
     {
       "path": "biome.json",
-      "target": "project",
+      "target": "root",
       "content": "biome.json.template"
-    },
-    {
-      "path": ".env",
-      "target": "project",
-      "content": ".env.template"
-    },
-    {
-      "path": "core/typescript-config/package.json",
-      "target": "project",
-      "content": "core-typescript-config-package.json.template"
-    },
-    {
-      "path": "core/typescript-config/bun-base.json",
-      "target": "project",
-      "content": "core-typescript-config-bun-base.json.template"
-    },
-    {
-      "path": "core/typescript-config/base.json",
-      "target": "project",
-      "content": "core-typescript-config-base.json.template"
-    },
-    {
-      "path": "core/typescript-config/react-library.json",
-      "target": "project",
-      "content": "core-typescript-config-react-library.json.template"
-    },
-    {
-      "path": "core/api/package.json",
-      "target": "project",
-      "content": "core-api-package.json.template"
-    },
-    {
-      "path": "core/api/tsconfig.json",
-      "target": "project",
-      "content": "core-api-tsconfig.json.template"
-    },
-    {
-      "path": "core/api/src/rate-limiter.ts",
-      "target": "project",
-      "content": "core-api-src-rate-limiter.ts.template"
-    },
-    {
-      "path": "core/api/src/middleware/rate-limiting.ts",
-      "target": "project",
-      "content": "core-api-src-middleware-rate-limiting.ts.template"
-    },
-    {
-      "path": "core/api/src/routes/errors.ts",
-      "target": "project",
-      "content": "core-api-src-routes-errors.ts.template"
-    },
-    {
-      "path": "core/environment/package.json",
-      "target": "project",
-      "content": "core-environment-package.json.template"
-    },
-    {
-      "path": "core/environment/tsconfig.json",
-      "target": "project",
-      "content": "core-environment-tsconfig.json.template"
-    },
-    {
-      "path": "core/environment/src/index.ts",
-      "target": "project",
-      "content": "core-environment-src-index.ts.template"
-    },
-    {
-      "path": "backend/server/package.json",
-      "target": "project",
-      "content": "backend-server-package.json.template"
-    },
-    {
-      "path": "backend/server/tsconfig.json",
-      "target": "project",
-      "content": "backend-server-tsconfig.json.template"
-    },
-    {
-      "path": "backend/server/src/index.ts",
-      "target": "project",
-      "content": "backend-server-src-index.ts.template"
-    },
-    {
-      "path": "backend/server/src/routes/hello-world.ts",
-      "target": "project",
-      "content": "backend-server-src-routes-hello-world.ts.template"
-    },
-    {
-      "path": "backend/server/src/client.ts",
-      "target": "project",
-      "content": "backend-server-src-client.ts.template"
     }
   ]
 }
